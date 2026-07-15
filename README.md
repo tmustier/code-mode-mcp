@@ -34,7 +34,16 @@ Normal client tools remain available directly. Code Mode composes the MCP server
 - Node.js 22 or newer
 - an MCP client that can launch a stdio server
 
-## Install from source
+## Install
+
+Install the exact npm release globally:
+
+```bash
+npm install --global pi-code-mode-mcp@0.1.1
+pi-code-mode-mcp --help
+```
+
+Or build a source checkout:
 
 ```bash
 git clone https://github.com/tmustier/pi-code-mode-mcp.git
@@ -43,7 +52,7 @@ npm ci
 npm run prepublishOnly
 ```
 
-The executable is `dist/cli.js` after the build.
+The source executable is `dist/cli.js` after the build.
 
 ## Configure upstream MCP servers
 
@@ -75,7 +84,7 @@ Create `~/.config/pi-code-mode-mcp/mcp.json`:
 Validate without starting MCP:
 
 ```bash
-node dist/cli.js --check-config \
+pi-code-mode-mcp --check-config \
   --config ~/.config/pi-code-mode-mcp/mcp.json
 ```
 
@@ -129,9 +138,10 @@ Add this outer server to `~/.pi/agent/mcp.json` or `.pi/mcp.json`:
 {
   "mcpServers": {
     "code-mode": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/absolute/path/to/pi-code-mode-mcp/dist/cli.js",
+        "-y",
+        "pi-code-mode-mcp@0.1.1",
         "--config",
         "/Users/you/.config/pi-code-mode-mcp/mcp.json"
       ],
