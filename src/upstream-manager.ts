@@ -16,7 +16,7 @@ import {
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { NestedOAuthProvider, type OAuthInteraction } from "./oauth.ts";
-import { PACKAGE_NAME, VERSION } from "./version.ts";
+import { SERVER_NAME, VERSION } from "./version.ts";
 import type {
   LoadedCodeModeConfig,
   NestedCallContext,
@@ -204,7 +204,7 @@ export class UpstreamManager implements OAuthInteraction {
   private createClient(name: string): Client {
     const capabilities = this.buildInnerCapabilities();
     const client = new Client(
-      { name: `${PACKAGE_NAME}-${name}`, version: VERSION },
+      { name: `${SERVER_NAME}-${name}`, version: VERSION },
       Object.keys(capabilities).length > 0 ? { capabilities } : undefined,
     );
     this.registerForwardingHandlers(client, capabilities);

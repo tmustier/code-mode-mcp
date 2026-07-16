@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { loadConfig } from "./config.ts";
 import { startStdioServer } from "./mcp-server.ts";
-import { PACKAGE_NAME, VERSION } from "./version.ts";
+import { CLI_NAME, VERSION } from "./version.ts";
 
 interface CliOptions {
   configPath?: string;
@@ -74,11 +74,11 @@ function parseArgs(args: string[]): CliOptions {
 }
 
 function helpText(): string {
-  return `${PACKAGE_NAME} ${VERSION}\n\nUsage:\n  ${PACKAGE_NAME} [--config PATH]\n  ${PACKAGE_NAME} --check-config [--config PATH]\n\nOptions:\n  --config PATH   Read upstream MCP servers from this JSON file.\n  --check-config  Validate configuration and print a secret-free JSON summary.\n  --help, -h      Show this help.\n  --version, -v   Show the version.\n\nConfig lookup when --config is omitted:\n  $CODE_MODE_MCP_CONFIG\n  ./.code-mode-mcp.json\n  ~/.config/code-mode-mcp/mcp.json\n\nLegacy PI_CODE_MODE_MCP_CONFIG and ~/.config/pi-code-mode-mcp/mcp.json are fallback locations.\nStandard output is reserved for MCP in server mode.\n`;
+  return `${CLI_NAME} ${VERSION}\n\nUsage:\n  ${CLI_NAME} [--config PATH]\n  ${CLI_NAME} --check-config [--config PATH]\n\nOptions:\n  --config PATH   Read upstream MCP servers from this JSON file.\n  --check-config  Validate configuration and print a secret-free JSON summary.\n  --help, -h      Show this help.\n  --version, -v   Show the version.\n\nConfig lookup when --config is omitted:\n  $CODE_MODE_MCP_CONFIG\n  ./.code-mode-mcp.json\n  ~/.config/code-mode-mcp/mcp.json\n\nLegacy PI_CODE_MODE_MCP_CONFIG and ~/.config/pi-code-mode-mcp/mcp.json are fallback locations.\nStandard output is reserved for MCP in server mode.\n`;
 }
 
 main().catch(error => {
   const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${PACKAGE_NAME}: ${message}\n`);
+  process.stderr.write(`${CLI_NAME}: ${message}\n`);
   process.exitCode = 1;
 });
