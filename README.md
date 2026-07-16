@@ -1,80 +1,69 @@
 # Code Mode MCP
 
-Compose arbitrary MCP tools with JavaScript through one agent-agnostic stdio MCP server.
+Use JavaScript to discover and compose MCP tools through one agent-agnostic stdio server.
 
-The server exposes one tool, `exec`. Upstream schemas stay out of the model's initial context: JavaScript finds relevant tools with ranked `search()`, inspects exact schemas with `describe()`, and invokes normalized functions on `tools`.
+Code Mode exposes one model-facing tool, `exec`. A program can search configured MCP servers, inspect exact schemas, call tools and reduce intermediate results. Upstream schemas stay out of the model's initial context.
 
-> **Independent and experimental.** This is not an OpenAI or Pi product. The Code Mode API may change before version 1.0.
->
-> Upgrading from `pi-code-mode-mcp`? See [`MIGRATION.md`](MIGRATION.md).
+## Choose Code Mode by task shape
 
-## What it does
+Use Code Mode for stages that involve:
+
+- large tool catalogs
+- repeated calls followed by filtering or aggregation
+- long deterministic chains
+- large intermediate results that the model does not need to inspect
+
+Keep direct tools available for short tasks, semantic decisions, approvals, errors and rich results. A workflow can switch between direct tools and Code Mode at each stage.
+
+The [direct tools and Code Mode benchmark](docs/benchmarks/2026-07-direct-tools-and-code-mode.md) explains this recommendation.
+
+## How it works
 
 ```text
-MCP client (Pi, Claude, Codex, or another host)
+MCP client
   └─ exec({ code })
-      └─ standalone code-mode-mcp process
-          ├─ tools.mcp__github__search_issues(...)
-          ├─ tools.mcp__computer_use__get_app_state(...)
-          └─ Promise.all(...)
+      └─ code-mode-mcp
+          ├─ search and describe upstream tools
+          ├─ call tools from JavaScript
+          └─ return selected results
 ```
 
-- one model-facing MCP tool instead of every upstream schema;
-- stdio, Streamable HTTP, and legacy SSE upstream transports;
-- JavaScript loops, branching, parallel calls, transformation, and filtering;
-- in-code discovery and exact JSON Schema inspection;
-- text, image, audio, resource, structured-content, error, and metadata forwarding;
-- nested cancellation, progress, elicitation, sampling, roots, logging, and `tools/list_changed` handling;
-- bearer auth, OAuth client credentials, and interactive authorization-code OAuth;
-- explicit, JSON-only, in-memory session state;
-- no automatic persistence of tool results, screenshots, logs, or intermediate values.
+Code Mode supports:
 
-Normal client tools remain available directly. Code Mode composes the MCP servers configured behind it; it does not replace the host's direct tools or convert host-native tools into nested MCP functions.
+- stdio, Streamable HTTP and legacy SSE upstream servers
+- bearer authentication and OAuth
+- cancellation, progress, elicitation, sampling, roots and logging
+- text, image, audio, resource and structured results
+- explicit JSON-only session state held in memory
 
-See the [direct tools and Code Mode benchmark](docs/benchmarks/2026-07-direct-tools-and-code-mode.md) for measured routing, context, latency and cost results.
+Code Mode does not store tool results, screenshots, console output or intermediate values automatically.
 
 ## Requirements
+
+You need:
 
 - Node.js 22 or newer
 - an MCP client that can launch a stdio server
 
 ## Install
 
-Install the exact npm release globally:
+Install version 0.4.0 from npm:
 
 ```bash
-npm install --global @tmustier/code-mode-mcp@0.3.0
+npm install --global @tmustier/code-mode-mcp@0.4.0
 code-mode-mcp --help
 ```
 
-Or build a source checkout:
-
-```bash
-git clone https://github.com/tmustier/code-mode-mcp.git
-cd code-mode-mcp
-npm ci
-npm run prepublishOnly
-```
-
-The source executable is `dist/cli.js` after the build.
-
-## Configure upstream MCP servers
+## Configure upstream servers
 
 Create `~/.config/code-mode-mcp/mcp.json`:
 
 ```json
 {
-  "settings": {
-    "executionTimeoutMs": 120000,
-    "requestTimeoutMs": 120000
-  },
   "mcpServers": {
-    "computer-use": {
+    "local": {
       "command": "node",
-      "args": [
-        "/absolute/path/to/codex-computer-use-mcp/dist/mcp-server.js"
-      ],
-      "requestTimeoutMs": 180000
+      "args": ["/absolute/path/to/server.js"]
     },
     "remote": {
       "url": "https://example.com/mcp",
@@ -85,59 +74,20 @@ Create `~/.config/code-mode-mcp/mcp.json`:
 }
 ```
 
-Validate without starting MCP:
+Check the file without starting MCP:
 
 ```bash
 code-mode-mcp --check-config \
   --config ~/.config/code-mode-mcp/mcp.json
 ```
 
-The JSON summary excludes commands, arguments, headers, tokens, and environment values.
+The check excludes commands, arguments, headers, tokens and environment values from its summary.
 
-### Configuration lookup
+See [configuration](docs/configuration.md) for transports, environment expansion, OAuth and config lookup.
 
-When `--config` is omitted, the first existing file wins:
+## Add Code Mode to an MCP client
 
-1. `$CODE_MODE_MCP_CONFIG`
-2. `./.code-mode-mcp.json`
-3. `~/.config/code-mode-mcp/mcp.json`
-4. legacy `~/.config/pi-code-mode-mcp/mcp.json`
-
-`PI_CODE_MODE_MCP_CONFIG` and `PI_CODE_MODE_MCP_HOME` remain compatibility fallbacks.
-
-The file uses the standard `mcpServers` object. Each server defines exactly one of:
-
-- `command`, with optional `args`, `env`, and `cwd`;
-- `url`, with optional `transport`, `headers`, and auth.
-
-URL transport defaults to Streamable HTTP with SSE fallback. Set `transport` to `"streamable-http"` or `"sse"` to require one.
-
-Strings support `${VAR}` and exact `$env:VAR` environment expansion. Relative `cwd` and `settings.stateDir` paths resolve from the config file.
-
-### OAuth
-
-```json
-{
-  "mcpServers": {
-    "linear": {
-      "url": "https://mcp.example.com/mcp",
-      "auth": "oauth",
-      "oauth": {
-        "grantType": "authorization_code",
-        "scope": "read write"
-      }
-    }
-  }
-}
-```
-
-For authorization-code OAuth, the server opens a loopback callback and forwards the authorization URL through MCP URL elicitation. The outer client decides whether to open it. Unsupported interaction returns `cancel`; the server never invents `accept` or `decline`.
-
-OAuth tokens, dynamic client registration, PKCE verifier, and discovery metadata are stored as mode-0600 files under `settings.stateDir` (default `~/.config/code-mode-mcp`). No tool result is stored there.
-
-## Add to any MCP client
-
-Configure the outer server in any client that can launch stdio MCP processes:
+Add the outer Code Mode server to your client's MCP configuration:
 
 ```json
 {
@@ -146,7 +96,7 @@ Configure the outer server in any client that can launch stdio MCP processes:
       "command": "npx",
       "args": [
         "-y",
-        "@tmustier/code-mode-mcp@0.3.0",
+        "@tmustier/code-mode-mcp@0.4.0",
         "--config",
         "/Users/you/.config/code-mode-mcp/mcp.json"
       ]
@@ -155,36 +105,11 @@ Configure the outer server in any client that can launch stdio MCP processes:
 }
 ```
 
-Keep the upstream file separate. Do not configure Code Mode as its own upstream server.
+Keep the upstream config separate. Do not configure Code Mode as its own upstream server.
 
-### Pi through `pi-mcp-adapter`
+## Use the `exec` tool
 
-Pi can add lifecycle and direct-tool settings in `~/.pi/agent/mcp.json` or `.pi/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "code-mode": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@tmustier/code-mode-mcp@0.3.0",
-        "--config",
-        "/Users/you/.config/code-mode-mcp/mcp.json"
-      ],
-      "lifecycle": "lazy",
-      "requestTimeoutMs": 180000,
-      "directTools": ["exec"]
-    }
-  }
-}
-```
-
-Restart or reload Pi after changing MCP configuration. The native Computer Use Pi extension and all normal Pi tools remain active alongside Code Mode.
-
-## `exec` API
-
-Input:
+The `code` field contains a JavaScript async function body:
 
 ```json
 {
@@ -195,53 +120,17 @@ Input:
 }
 ```
 
-`code` is a raw JavaScript async function body, not JSON-encoded source or a markdown fence.
+The execution context provides:
 
-### Discover
+- `search()` for ranked tool discovery
+- `describe()` for exact schemas
+- `tools.<name>(args)` and `call(name, args)` for tool calls
+- `ALL_TOOLS` and `ALL_SERVERS` for bounded custom discovery
+- `text()`, `image()` and `emit()` for output selection
+- `store()`, `load()` and `clearStore()` for in-memory JSON state
+- `signal` for cancellation
 
-```js
-return search("app screenshot accessibility", { limit: 5 });
-```
-
-`search()` uses recall-oriented lexical ranking over tool names, descriptions, titles, server names, and top-level input property names. It returns up to 10 compact `{ name, server, tool, title?, description, score }` matches by default, with no schemas. Query terms may match partially, so let the model choose among several candidates rather than treating the first result as authoritative.
-
-Every capability has one deterministic callable name derived from its raw `(server, tool)` identity. Already-safe short tuples use the readable form `mcp__<server>__<tool>`. Unsafe, structurally ambiguous or over-length tuples use a sanitized prefix plus 16 hexadecimal characters from SHA-256 over the server, a NUL byte and the tool name. Names are provider-safe, JavaScript-safe, independent of catalog order and no longer than 64 characters. Raw upstream names remain searchable metadata and unambiguous legacy names remain accepted by `call()` and `describe()` without creating duplicate functions on `tools`.
-
-Hosts that expose native direct MCP tools can import the reference implementation from `@tmustier/code-mode-mcp/naming`. They can also use `createCatalogSearchPage()` to share the same ranked discovery while retaining an exact total count and a bounded result page.
-
-It accepts optional `{ server, limit }` filters; the maximum limit is 50. Server filters accept either the raw configured key (`computer-use`) or its normalized form (`computer_use`) and report valid names instead of silently returning no matches. When vocabulary is uncertain, search several phrasings in one execution:
-
-```js
-const queries = ["send Teams message", "post chat message", "reply channel"];
-const hits = queries.flatMap(query => search(query, { server: "teams", limit: 5 }));
-return [...new Map(hits.map(hit => [hit.name, hit])).values()].slice(0, 10);
-```
-
-Inspect one exact schema:
-
-```js
-return describe("mcp__computer_use__get_app_state");
-```
-
-To inspect a small candidate set and its schemas in one discovery response:
-
-```js
-return search("send Teams message", { limit: 3 }).map(hit => describe(hit.name));
-```
-
-`ALL_TOOLS` remains a frozen complete inventory for deterministic recovery or custom filtering when ranked search is insufficient. Check its length and return only a bounded projection:
-
-```js
-return ALL_TOOLS
-  .filter(tool => /message|chat|channel/i.test(`${tool.name} ${tool.description}`))
-  .slice(0, 30);
-```
-
-Do not infer that a capability is absent from one empty ranked search. Rephrase, narrow by server, or inspect a bounded `ALL_TOOLS` projection.
-
-`ALL_SERVERS` reports `{ server, status, toolCount, error? }` summaries for enabled upstreams. Use `toolCount` to decide whether direct enumeration is reasonable.
-
-### Compose
+For example:
 
 ```js
 const apps = await tools.mcp__computer_use__list_apps({});
@@ -249,57 +138,35 @@ const selected = ["Calculator", "TextEdit"];
 const states = await Promise.all(
   selected.map(app => tools.mcp__computer_use__get_app_state({ app }))
 );
+
 return states.map((state, index) => ({
   app: selected[index],
   text: state.content.find(block => block.type === "text")?.text.slice(0, 500)
 }));
 ```
 
-Use `call(name, args)` when a name is selected dynamically.
+Code Mode preserves a complete MCP `CallToolResult` when you return it. Filter or aggregate large results inside the program to keep model context small.
 
-### Return rich output
+See the [`exec` API](docs/exec-api.md) for discovery, canonical tool names, output limits and session state.
 
-Returning a complete MCP `CallToolResult` preserves its blocks and fields:
+## Understand host authority
 
-```js
-return await tools.mcp__computer_use__get_app_state({ app: "Calculator" });
-```
+Code passed to `exec` has the same authority as the Node.js process. It can access the filesystem, network, environment, processes and child processes.
 
-Select output explicitly when intermediate results are large:
+`node:vm` controls execution and interrupts synchronous loops. It is not a security sandbox. Run Code Mode inside the operating system, container, account and credential boundary you want the agent to have.
 
-```js
-const result = await tools.mcp__computer_use__get_app_state({ app: "Calculator" });
-text("Current Calculator state");
-image(result.content.find(block => block.type === "image"), "original");
-```
+See the [security model](docs/SECURITY.md) before using Code Mode with sensitive systems.
 
-Helpers:
+## Documentation
 
-- `text(value)` emits a text block;
-- `image(dataUrlOrMcpImage, detail?)` emits an image;
-- `emit(contentBlock)` emits any valid MCP content block;
-- `console.log()` and related methods are captured and returned, not written to MCP stdout.
+- [configuration](docs/configuration.md)
+- [`exec` API](docs/exec-api.md)
+- [architecture](docs/ARCHITECTURE.md)
+- [security model](docs/SECURITY.md)
+- [architecture decision record](docs/adr/0001-standalone-code-mode-mcp.md)
+- [direct tools and Code Mode benchmark](docs/benchmarks/2026-07-direct-tools-and-code-mode.md)
 
-Returned text is bounded in memory. Oversized JSON is returned as a valid truncation envelope rather than cut mid-structure. Catalog-shaped arrays are structurally elided after 30 compact entries or 5 detailed schema entries, with `total`, `omitted`, and a filtering hint. The server never spills full output to disk. Filter and aggregate inside the code cell for the best context efficiency.
-
-### Session state
-
-```js
-store("cursor", { page: 2 });
-return load("cursor");
-```
-
-`store`, `load`, and `clearStore` use explicit JSON-only, process-memory state. It disappears when the Code Mode server exits. The default `session_id` is `"default"`.
-
-## Host authority and fault containment
-
-Generated code intentionally has the same authority as this Node process. It can use `process`, `require()`, dynamic `import()`, `fetch()`, filesystem, network, environment, and child-process APIs. `node:vm` supplies a fresh context, captured console, tracked standard timers, and synchronous timeout interruption; it is not a security sandbox.
-
-The standalone stdio process is the fault boundary. A synchronous tight loop is interrupted by `node:vm`. A loop that wedges the process after an asynchronous continuation may require the outer MCP client to terminate and restart the stdio server. This is why Code Mode is separate from Pi rather than an in-process extension.
-
-See [`ARCHITECTURE.md`](ARCHITECTURE.md), [`SECURITY.md`](SECURITY.md), and [ADR 0001](docs/adr/0001-standalone-code-mode-mcp.md).
-
-## Development
+## Develop
 
 ```bash
 npm ci

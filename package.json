@@ -32,9 +32,6 @@
     "docs",
     "npm-shrinkwrap.json",
     "README.md",
-    "ARCHITECTURE.md",
-    "SECURITY.md",
-    "MIGRATION.md",
     "LICENSE"
   ],
   "scripts": {
