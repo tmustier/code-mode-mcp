@@ -5,7 +5,7 @@ import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createCodeModeServer } from "../src/mcp-server.ts";
-import { PACKAGE_NAME, VERSION } from "../src/version.ts";
+import { CLI_NAME, PACKAGE_NAME, SERVER_NAME, VERSION } from "../src/version.ts";
 import type { LoadedCodeModeConfig } from "../src/types.ts";
 
 test("published identity is agent-agnostic and version-consistent", async () => {
@@ -18,7 +18,7 @@ test("published identity is agent-agnostic and version-consistent", async () => 
   };
   assert.equal(manifest.name, PACKAGE_NAME);
   assert.equal(manifest.version, VERSION);
-  assert.deepEqual(manifest.bin, { "code-mode-mcp": "dist/cli.js" });
+  assert.deepEqual(manifest.bin, { [CLI_NAME]: "dist/cli.js" });
   assert.match(manifest.repository.url, /tmustier\/code-mode-mcp/);
   for (const key of ["keywords", "repository", "bugs", "homepage", "publishConfig"]) {
     assert.equal([...raw.matchAll(new RegExp(`"${key}"\\s*:`, "g"))].length, 1, `${key} must occur once`);
@@ -27,9 +27,12 @@ test("published identity is agent-agnostic and version-consistent", async () => 
   const version = spawnSync(process.execPath, [new URL("../dist/cli.js", import.meta.url).pathname, "--version"], { encoding: "utf8" });
   assert.equal(version.status, 0, version.stderr);
   assert.equal(version.stdout.trim(), VERSION);
+  const help = spawnSync(process.execPath, [new URL("../dist/cli.js", import.meta.url).pathname, "--help"], { encoding: "utf8" });
+  assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, new RegExp(`^${CLI_NAME} ${VERSION.replaceAll(".", "\\.")}`));
 });
 
-test("MCP initialize reports the generic package identity", async () => {
+test("MCP initialize reports the generic server identity", async () => {
   const config: LoadedCodeModeConfig = {
     baseDir: process.cwd(),
     settings: {
@@ -47,7 +50,7 @@ test("MCP initialize reports the generic package identity", async () => {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([handle.server.connect(serverTransport), client.connect(clientTransport)]);
   try {
-    assert.deepEqual(client.getServerVersion(), { name: PACKAGE_NAME, version: VERSION });
+    assert.deepEqual(client.getServerVersion(), { name: SERVER_NAME, version: VERSION });
   } finally {
     await client.close();
     await handle.close();

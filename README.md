@@ -41,7 +41,7 @@ Normal client tools remain available directly. Code Mode composes the MCP server
 Install the exact npm release globally:
 
 ```bash
-npm install --global code-mode-mcp@0.2.0
+npm install --global @tmustier/code-mode-mcp@0.2.0
 code-mode-mcp --help
 ```
 
@@ -144,7 +144,7 @@ Configure the outer server in any client that can launch stdio MCP processes:
       "command": "npx",
       "args": [
         "-y",
-        "code-mode-mcp@0.2.0",
+        "@tmustier/code-mode-mcp@0.2.0",
         "--config",
         "/Users/you/.config/code-mode-mcp/mcp.json"
       ]
@@ -166,7 +166,7 @@ Pi can add lifecycle and direct-tool settings in `~/.pi/agent/mcp.json` or `.pi/
       "command": "npx",
       "args": [
         "-y",
-        "code-mode-mcp@0.2.0",
+        "@tmustier/code-mode-mcp@0.2.0",
         "--config",
         "/Users/you/.config/code-mode-mcp/mcp.json"
       ],
